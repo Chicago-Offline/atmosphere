@@ -1,6 +1,7 @@
 package com.atakmap.android.atmosphere.rain;
 
 import com.atakmap.android.atmosphere.wind.Grib2;
+import com.atakmap.android.atmosphere.wind.NomadsWind;
 
 import java.io.IOException;
 import java.util.List;
@@ -9,11 +10,20 @@ public final class NomadsTemperature {
     /**
      * The broadcast weather map's scale: purple through blue, cyan, green, yellow,
      * orange and red to magenta, saturated and nearly opaque, so the bands read from
-     * across a room (operator, 2026-11-12: "the 90's weather report look"). Stops in
-     * °C; the gradient between them is read at each band's middle.
+     * across a room (operator, 2026-11-12: "the 90's weather report look"). Below
+     * the purple the scale lightens every five degrees, violet, lavender, lilac to
+     * white at -80: at 34,000 ft the whole sky is colder than -40 and was one
+     * purple (operator, the same day: "we lose differentiation in color at higher
+     * altitudes"), and the cold stays its own family rather than borrowing the
+     * temperate hues, so cold reads as cold (operator: "it made it distinct from the
+     * temperate colors"). Stops in °C; the gradient between them is read at each
+     * band's middle.
      */
-    private static final float[] STOPS = { -40, -30, -20, -10, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45 };
+    private static final float[] STOPS = { -80, -75, -70, -65, -60, -55, -50, -45, -40, -30, -20,
+            -10, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45 };
     private static final int[] COLORS = {
+            0xC8FFFFFF, 0xC8E6E6FA, 0xC8D2CDF5, 0xC8BEB4F0, 0xC8AA96EC, 0xC89678E6, 0xC88C5AE0,
+            0xC89A3CD2,
             0xC8B000C8, 0xC87B1FE0, 0xC81E3CFF, 0xC80A78FF, 0xC800C8FF, 0xC800D28C, 0xC828C832,
             0xC8A0E600, 0xC8FFE600, 0xC8FFB400, 0xC8FF7800, 0xC8FF3C00, 0xC8E00000, 0xC8B40064 };
 
@@ -30,8 +40,29 @@ public final class NomadsTemperature {
     }
 
     public static String url(long run, int hour, double west, double south, double east, double north) {
+        return url(run, hour, west, south, east, north, NomadsWind.Level.AGL_10);
+    }
+
+    /**
+     * The heights the temperature is offered at: the wind's ladder less its 80 m
+     * rung, which the model does not carry a temperature for. The ground rung is
+     * the 2 m temperature, the one a thermometer reads; the rest are the standard
+     * pressure surfaces a pilot is briefed on, the freezing level among them.
+     */
+    public static final NomadsWind.Level[] LEVELS = {
+            NomadsWind.Level.AGL_10, NomadsWind.Level.MB_925, NomadsWind.Level.MB_850,
+            NomadsWind.Level.MB_700, NomadsWind.Level.MB_500, NomadsWind.Level.MB_300,
+            NomadsWind.Level.MB_250 };
+
+    /** The filter's name for a rung: the ground is the 2 m temperature. */
+    public static String levelParam(NomadsWind.Level level) {
+        return level.surface ? "lev_2_m_above_ground" : level.param;
+    }
+
+    public static String url(long run, int hour, double west, double south, double east, double north,
+            NomadsWind.Level level) {
         return NomadsRain.url(run, hour, west, south, east, north,
-            "var_TMP=on&lev_2_m_above_ground=on");
+            "var_TMP=on&" + levelParam(level) + "=on");
     }
 
     public static RainGrid read(byte[] body) throws IOException {
